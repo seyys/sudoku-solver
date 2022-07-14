@@ -6,44 +6,45 @@ class Solver:
     grid_size = (3, 3)
 
     def __init__(self, puzzle):
-        self.potential = None
         self.puzzle = puzzle
 
-    def complete_rows(self):
-        for row in [x for x in self.puzzle if sum(x == None) == 1]:
-            row[np.where(row == None)] = self.total - sum(row[np.where(row != None)])
-
-    def complete_cols(self):
-        for col in [x for x in self.puzzle.T if sum(x == None) == 1]:
-            col[np.where(col == None)] = self.total - sum(col[np.where(col != None)])
-
-    def complete_subgrid(self):
-        for rows in range(0, 9, 3):
-            for cols in range(0, 9, 3):
-                subgrid = self.puzzle[cols:cols + 3, rows:rows + 3]
-                if sum(subgrid.flatten() == None) == 1:
-                    subgrid[np.where(subgrid == None)] = self.total - sum(subgrid[np.where(subgrid != None)])
-
-    def generate_potentials(self):
-        self.potential = list(self.puzzle.copy())
-        for r, row in enumerate(self.potential):
+    def initialise_potentials(self):
+        for r, row in enumerate(self.puzzle):
             for c, cell in enumerate(row):
                 if not cell:
-                    self.potential[r][c] = set(range(1, 10)) - set(self.puzzle[r]) - set(self.puzzle[:, c])
+                    self.puzzle[r,c] = set(range(1, 10)) - set(x for x in self.puzzle[r] if isinstance(x, int)) - set(x for x in self.puzzle.T[c] if isinstance(x, int))
         for rows in range(0, 9, 3):
             for cols in range(0, 9, 3):
-                subgrid = set(list(self.puzzle[rows:rows + 3, cols:cols + 3].flatten()))
+                subgrid = set(list(x for x in self.puzzle[rows:rows + 3, cols:cols + 3].flatten() if isinstance(x, int)))
                 for r in range(rows, rows + 3):
                     for c in range(cols, cols + 3):
-                        if isinstance(self.potential[r][c], set):
-                            self.potential[r][c] -= subgrid
+                        if isinstance(self.puzzle[r][c], set):
+                            self.puzzle[r][c] -= subgrid
 
     def check_potentials(self):
-        for r, row in enumerate(self.potential):
+        for r, row in enumerate(self.puzzle):
             for c, cell in enumerate(row):
                 if isinstance(cell, set) and len(cell) == 1:
-                    self.potential[r][c] = cell.pop()
-                    self.puzzle[r, c] = self.potential[r][c]
+                    self.puzzle[r, c] = next(iter(cell))
+                    self.update_grid(set([self.puzzle[r,c]]), r, c)
+
+    def update_grid(self, val, row, col):
+        self.update_line(val, self.puzzle[row])
+        self.update_line(val, self.puzzle.T[col])
+        self.update_subgrid(val, row, col)
+
+    def update_line(self, val, line):
+        for ele in line:
+            if isinstance(ele, set):
+                ele -= val
+
+    def update_subgrid(self, val, row, col):
+        idx_row_0 = row - row % 3
+        idx_col_0 = col - col % 3
+        for r in range(idx_row_0, idx_row_0 + 3):
+            for c in range(idx_col_0, idx_col_0 + 3):
+                if isinstance(self.puzzle[r][c], set):
+                    self.puzzle[r][c] -= val
 
     def check_only_potentials(self):
         self.check_only_potential_row()
@@ -51,7 +52,7 @@ class Solver:
         self.check_only_potential_subgrid()
 
     def check_only_potential_row(self):
-        for row in self.potential:
+        for row in self.puzzle:
             for i, cell in enumerate(row):
                 if isinstance(cell, set):
                     r = list(row)
@@ -74,19 +75,15 @@ class Solver:
         else:
             return False
 
-
+    # If only ints are left in the puzzle it's solved
     def solved(self):
-        if sum(self.puzzle.flatten() == None) == 0:
-            return True
-        else:
-            return False
+        return all([isinstance(x,int) for x in self.puzzle.flatten()])
+
+    # If there's any empty set of potentials in the puzzle then it's not solvable
+    def solvable(self):
+        return not any([x == set() for x in self.puzzle.flatten()])
 
     def solve(self):
-        self.generate_potentials()
+        self.initialise_potentials()
         while not self.solved():
-            self.complete_rows()
-            self.complete_cols()
-            self.complete_subgrid()
-            self.generate_potentials()
             self.check_potentials()
-            self.check_only_potentials()
