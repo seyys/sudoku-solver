@@ -1,4 +1,5 @@
 import numpy as np
+import itertools
 
 
 class Solver:
@@ -22,18 +23,24 @@ class Solver:
                             self.puzzle[r][c] -= subgrid
 
     def check_potentials(self):
-        for r, row in enumerate(self.puzzle):
-            for c, cell in enumerate(row):
-                if isinstance(cell, set) and len(cell) == 1:
-                    self.puzzle[r, c] = next(iter(cell))
-                    self.update_grid(set([self.puzzle[r,c]]), r, c)
+        cell_updated = True
+        while cell_updated:
+            cell_updated = False
+            for r, row in enumerate(self.puzzle):
+                for c, cell in enumerate(row):
+                    if isinstance(cell, set) and len(cell) == 1:
+                        self.puzzle[r, c] = next(iter(cell))
+                        self.update_grid(set([self.puzzle[r,c]]), r, c)
+                        cell_updated = True
 
     def update_grid(self, val, row, col):
         self.update_line(val, self.puzzle[row])
         self.update_line(val, self.puzzle.T[col])
         self.update_subgrid(val, row, col)
+        self.check_potentials()
 
-    def update_line(self, val, line):
+    @staticmethod
+    def update_line(val, line):
         for ele in line:
             if isinstance(ele, set):
                 ele -= val
@@ -47,25 +54,25 @@ class Solver:
                     self.puzzle[r][c] -= val
 
     def check_only_potentials(self):
-        self.check_only_potential_row()
-        self.check_only_potential_col()
-        self.check_only_potential_subgrid()
-
-    def check_only_potential_row(self):
-        for row in self.puzzle:
-            for i, cell in enumerate(row):
+        for r, row in enumerate(self.puzzle):
+            for c, cell in enumerate(row):
                 if isinstance(cell, set):
-                    r = list(row)
-                    check = Solver.check_only_potential_value(cell.copy(), r[:i] + r[i+1:])
+                    _r = list(row)
+                    check = Solver.check_only_potential_value(cell.copy(), _r[:c] + _r[c+1:])
+                    if not check:
+                        _c = list(self.puzzle.T[c])
+                        check = Solver.check_only_potential_value(cell.copy(), _c[:r] + _c[r+1:])
+                        if not check:
+                            r0 = r - r % 3
+                            c0 = c - c % 3
+                            _linearPos = r0 * 3 + c0
+                            _sg = list(self.puzzle[r0:r0 + 3, c0:c0 + 3].flatten())
+                            check = Solver.check_only_potential_value(cell.copy(), _sg[:_linearPos] + _sg[_linearPos+1:])
                     if check:
-                        cell = check
+                        self.puzzle[r][c] = check
+                        self.update_grid(set([check]), r, c)
 
-    def check_only_potential_col(self):
-        pass
-
-    def check_only_potential_subgrid(self):
-        pass
-
+    @staticmethod
     def check_only_potential_value(cell, potentials):
         for c in potentials:
             if isinstance(c, set):
@@ -74,6 +81,25 @@ class Solver:
             return next(iter(cell))
         else:
             return False
+
+    def check_pointing_val(self):
+        for rows in range(0,9,3):
+            for cols in range(0,9,3):
+                subgrid = self.puzzle[rows:rows+3, cols:cols+3]
+                Solver.check_pointing_val_in_line(self.puzzle, subgrid, rows, cols)
+                Solver.check_pointing_val_in_line(self.puzzle.T, subgrid.T, cols, rows)
+
+    @staticmethod
+    def check_pointing_val_in_line(puzzle, subgrid, rows, cols):
+        r_pots = [set().union(*(x for x in row if isinstance(x, set))) for row in subgrid]
+        r_val_has_to_be_here = [r_pots[a] - r_pots[b] - r_pots[c] for a,b,c in [[0,1,2],[1,0,2],[2,0,1]]]
+        for idx_r, r in enumerate(r_val_has_to_be_here):
+            if len(r) > 0:
+                # Propagate across row without touching this subgrid
+                cols_to_modify = set(range(9)) - set(range(cols,cols+3))
+                for _col in cols_to_modify:
+                    if isinstance(puzzle[rows+idx_r][_col], set):
+                        puzzle[rows + idx_r][_col] -= r
 
     # If only ints are left in the puzzle it's solved
     def solved(self):
@@ -85,5 +111,8 @@ class Solver:
 
     def solve(self):
         self.initialise_potentials()
-        while not self.solved():
-            self.check_potentials()
+        self.check_potentials()
+        # while not self.solved():
+        for __ in range(1000):
+            self.check_only_potentials()
+            self.check_pointing_val()
