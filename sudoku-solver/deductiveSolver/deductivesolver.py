@@ -69,26 +69,16 @@ class DeductiveSolver:
                 self.update_grid(set([self.puzzle[r][c]]), r, c)
             if array_modified:
                 self.check_potentials()
-        # TODO
-        # for subgrid in
-
-        # for r, row in enumerate(self.puzzle):
-        #     for c, cell in enumerate(row):
-        #         if isinstance(cell, set):
-        #             _r = list(row)
-        #             check = DeductiveSolver.check_only_potential_value(cell.copy(), _r[:c] + _r[c + 1:])
-        #             if not check:
-        #                 _c = list(self.puzzle.T[c])
-        #                 check = DeductiveSolver.check_only_potential_value(cell.copy(), _c[:r] + _c[r + 1:])
-        #                 if not check:
-        #                     r0 = r - r % 3
-        #                     c0 = c - c % 3
-        #                     _linearPos = r0 * 3 + c0
-        #                     _sg = list(self.puzzle[r0:r0 + 3, c0:c0 + 3].flatten())
-        #                     check = DeductiveSolver.check_only_potential_value(cell.copy(), _sg[:_linearPos] + _sg[_linearPos + 1:])
-        #             if check:
-        #                 self.puzzle[r][c] = check
-        #                 self.update_grid(set([check]), r, c)
+        for r0 in range(0, 9, 3):
+            for c0 in range(0, 9, 3):
+                subgrid = self.puzzle[r0:r0 + 3, c0:c0 + 3].flatten()
+                array_modified, deduced_val_loc = DeductiveSolver.check_naked_vals_in_array(subgrid)
+                for loc in deduced_val_loc:
+                    r = r0 + np.floor(loc, 3)
+                    c = c0 + (loc % 3)
+                    self.update_grid(set([self.puzzle[r][c]]), r, c)
+                if array_modified:
+                    self.check_potentials()
 
     @staticmethod
     def check_naked_vals_in_array(arr):
