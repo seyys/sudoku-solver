@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 from collections import Counter
+import itertools
 
 
 class DeductiveSolver:
@@ -33,7 +34,7 @@ class DeductiveSolver:
                 for c, cell in enumerate(row):
                     if isinstance(cell, set) and len(cell) == 1:
                         self.puzzle[r, c] = next(iter(cell))
-                        self.update_grid(set([self.puzzle[r, c]]), r, c)
+                        self.update_grid({self.puzzle[r, c]}, r, c)
                         cell_updated = True
 
     def update_grid(self, val, row, col):
@@ -56,28 +57,31 @@ class DeductiveSolver:
                 if isinstance(self.puzzle[r][c], set):
                     self.puzzle[r][c] -= val
 
-    def check_naked_vals(self):
+    def check_naked_and_hidden_sets(self):
         for r, row in enumerate(self.puzzle):
             array_modified, deduced_val_loc = DeductiveSolver.check_naked_vals_in_array(row)
+            array_modified = DeductiveSolver.check_hidden_vals_in_array(row)
             for c in deduced_val_loc:
-                self.update_grid(set([self.puzzle[r][c]]), r, c)
-            if array_modified:
+                self.update_grid({self.puzzle[r][c]}, r, c)
+            if array_modified and not deduced_val_loc:
                 self.check_potentials()
         for c, col in enumerate(self.puzzle.T):
             array_modified, deduced_val_loc = DeductiveSolver.check_naked_vals_in_array(col)
+            array_modified = DeductiveSolver.check_hidden_vals_in_array(col)
             for r in deduced_val_loc:
-                self.update_grid(set([self.puzzle[r][c]]), r, c)
-            if array_modified:
+                self.update_grid({self.puzzle[r][c]}, r, c)
+            if array_modified and not deduced_val_loc:
                 self.check_potentials()
         for r0 in range(0, 9, 3):
             for c0 in range(0, 9, 3):
                 subgrid = self.puzzle[r0:r0 + 3, c0:c0 + 3].flatten()
                 array_modified, deduced_val_loc = DeductiveSolver.check_naked_vals_in_array(subgrid)
+                array_modified = DeductiveSolver.check_hidden_vals_in_array(subgrid)
                 for loc in deduced_val_loc:
                     r = r0 + np.floor(loc, 3)
                     c = c0 + (loc % 3)
-                    self.update_grid(set([self.puzzle[r][c]]), r, c)
-                if array_modified:
+                    self.update_grid({self.puzzle[r][c]}, r, c)
+                if array_modified and not deduced_val_loc:
                     self.check_potentials()
 
     @staticmethod
@@ -95,6 +99,26 @@ class DeductiveSolver:
                         cell -= pots
                         array_modified = True
         return array_modified, deduced_val_loc
+
+    @staticmethod
+    def check_hidden_vals_in_array(arr):
+        array_modified = False
+        foo = Counter(itertools.chain(*[x for x in arr if isinstance(x,set)]))
+        count = dict()
+        for k,v in foo.items():
+            if v not in count.keys():
+                count[v] = []
+            count[v].append(k)
+        for k,v in count.items():
+            if len(v) >= k:
+                for proposed_set in itertools.combinations(v, k):
+                    is_subset = [(set(proposed_set).issubset(x) if isinstance(x, set) else False) for x in arr]
+                    # If hidden sets exist
+                    if sum(is_subset) == k:
+                        for i in list(itertools.compress(range(len(is_subset)), is_subset)):
+                            arr[i] = set(proposed_set)
+                            array_modified = True
+        return array_modified
 
     def check_pointing_val(self):
         for rows in range(0, 9, 3):
@@ -128,5 +152,5 @@ class DeductiveSolver:
         self.check_potentials()
         # while not self.solved():
         for __ in range(1000):
-            self.check_naked_vals()
             self.check_pointing_val()
+            self.check_naked_and_hidden_sets()
