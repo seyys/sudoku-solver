@@ -124,11 +124,15 @@ class DeductiveSolver:
         for rows in range(0, 9, 3):
             for cols in range(0, 9, 3):
                 subgrid = self.puzzle[rows:rows + 3, cols:cols + 3]
-                DeductiveSolver.check_pointing_val_in_line(self.puzzle, subgrid, rows, cols)
-                DeductiveSolver.check_pointing_val_in_line(self.puzzle.T, subgrid.T, cols, rows)
+                DeductiveSolver.check_pointing_val_in_subgrid(self.puzzle, subgrid, rows, cols)
+                DeductiveSolver.check_pointing_val_in_subgrid(self.puzzle.T, subgrid.T, cols, rows)
+        for idx_line in range(9):
+            DeductiveSolver.check_pointing_val_in_line(self.puzzle, idx_line)
+            DeductiveSolver.check_pointing_val_in_line(self.puzzle.T, idx_line)
 
     @staticmethod
-    def check_pointing_val_in_line(puzzle, subgrid, rows, cols):
+    def check_pointing_val_in_subgrid(puzzle, subgrid, rows, cols):
+        # Find all potentials in each row in the subgrid
         r_pots = [set().union(*(x for x in row if isinstance(x, set))) for row in subgrid]
         r_val_has_to_be_here = [r_pots[a] - r_pots[b] - r_pots[c] for a, b, c in [[0, 1, 2], [1, 0, 2], [2, 0, 1]]]
         for idx_r, r in enumerate(r_val_has_to_be_here):
@@ -138,6 +142,20 @@ class DeductiveSolver:
                 for _col in cols_to_modify:
                     if isinstance(puzzle[rows + idx_r][_col], set):
                         puzzle[rows + idx_r][_col] -= r
+
+    @staticmethod
+    def check_pointing_val_in_line(puzzle, idx_line):
+        # Find all potentials for each subgrid row in each row
+        r_pots = [set().union(*([puzzle[idx_line][x] for x in range(y,y+3) if isinstance(puzzle[idx_line][x],set)])) for y in range(0,9,3)]
+        r_val_has_to_be_here = [r_pots[a] - r_pots[b] - r_pots[c] for a, b, c in [[0, 1, 2], [1, 0, 2], [2, 0, 1]]]
+        for idx_r, r in enumerate(r_val_has_to_be_here):
+            if len(r) > 0:
+                for row in range(idx_line-(idx_line%3),idx_line-(idx_line%3)+3):
+                    if row == idx_line:
+                        continue
+                    for col in range(idx_r*3,idx_r*3+3):
+                        if isinstance(puzzle[row][col], set):
+                            puzzle[row][col] -= r
 
     # If only ints are left in the puzzle it's solved
     def solved(self):
