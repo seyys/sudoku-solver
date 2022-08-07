@@ -1,7 +1,6 @@
 import numpy as np
 import itertools
 from collections import Counter
-import itertools
 
 
 class DeductiveSolver:
@@ -157,6 +156,86 @@ class DeductiveSolver:
                         if isinstance(puzzle[row][col], set):
                             puzzle[row][col] -= r
 
+    def check_x_wings(self):
+        DeductiveSolver.check_x_wings_in_line(self.puzzle)
+        DeductiveSolver.check_x_wings_in_line(self.puzzle.T)
+
+    @staticmethod
+    def check_x_wings_in_line(puzzle):
+        for idx_line1, line1 in enumerate(puzzle):
+            # Find positions of each potential value
+            pots = {k:v for (k,v) in zip (range(1,10), [[idx for idx,x in enumerate(line1) if (isinstance(x,set) and {i}.issubset(x))] for i in range(1,10)])}
+            for digit, pos in pots.items():
+                if len(pos) != 2:
+                    continue
+                for idx_line2, line2 in enumerate(puzzle):
+                    if idx_line2 == idx_line1:
+                        continue
+                    if [idx for idx,x in enumerate(line2) if (isinstance(x,set) and {digit}.issubset(x))] == pos:
+                        for l in range(9):
+                            if l == idx_line1 or l == idx_line2:
+                                continue
+                            puzzle[l][pos[0]] -= set([digit]) if isinstance(puzzle[l][pos[0]],set) else 0
+                            puzzle[l][pos[1]] -= set([digit]) if isinstance(puzzle[l][pos[1]],set) else 0
+
+    def check_xy_wings(self):
+        for pots1 in self.xy_find_potential_cell():
+            for pots1_val in list(self.puzzle[pots1]):
+                for pots2 in self.xy_find_potential_cell({pots1_val}):
+                    # If same cell
+                    if pots2 == pots1:
+                        continue
+                    # If same values
+                    if self.puzzle[pots2] == self.puzzle[pots1]:
+                        continue
+                    if not DeductiveSolver.xy_check_intersection(pots1, pots2):
+                        continue
+                    # Find uncommon values
+                    pots3_val = self.puzzle[pots1].union(self.puzzle[pots2]) - self.puzzle[pots1].intersection(self.puzzle[pots2])
+                    for pots3 in self.xy_find_potential_cell(pots3_val):
+                        if pots3 == pots2 or pots3 == pots1:
+                            continue
+                        # Check intersections with pots1 or pots2
+                        intersections = [DeductiveSolver.xy_check_intersection(pots1, pots3),
+                                         DeductiveSolver.xy_check_intersection(pots2, pots3)]
+                        if all(intersections) or not any(intersections):
+                            continue
+                        if intersections[0]:
+                            wings = [pots2, pots3]
+                        elif intersections[1]:
+                            wings = [pots1, pots3]
+                        shared_marking = self.puzzle[wings[0]].intersection(self.puzzle[wings[1]])
+                        for r, c in DeductiveSolver.xy_find_intersecting_cells(*wings):
+                            if isinstance(self.puzzle[r][c], set):
+                                self.puzzle[r][c] -= shared_marking
+
+    def xy_find_potential_cell(self, scribble_must_have=set()):
+        idx = []
+        for r, row in enumerate(self.puzzle):
+            for c, cell in enumerate(row):
+                if isinstance(cell, set) and len(cell) == 2 and scribble_must_have.issubset(cell):
+                    idx.append((r, c))
+        return idx
+
+    @staticmethod
+    def xy_check_intersection(loc1, loc2):
+        intersects = True
+        if loc1[0] != loc2[0] and loc1[1] != loc2[1]:
+            if not (np.floor_divide(loc1[0], 3) == np.floor_divide(loc2[0], 3) and np.floor_divide(loc1[1], 3) == np.floor_divide(loc2[1], 3)):
+                intersects = False
+        return intersects
+
+    @staticmethod
+    def xy_find_intersecting_cells(cell1, cell2):
+        intersections = []
+        for r in range(9):
+            for c in range(9):
+                if (r, c) == cell1 or (r, c) == cell2:
+                    continue
+                if DeductiveSolver.xy_check_intersection((r, c), cell1) and DeductiveSolver.xy_check_intersection((r, c), cell2):
+                    intersections.append((r, c))
+        return intersections
+
     # If only ints are left in the puzzle it's solved
     def solved(self):
         return all([isinstance(x, int) for x in self.puzzle.flatten()])
@@ -172,3 +251,5 @@ class DeductiveSolver:
         for __ in range(1000):
             self.check_pointing_val()
             self.check_naked_and_hidden_sets()
+            self.check_xy_wings()
+            self.check_x_wings()
