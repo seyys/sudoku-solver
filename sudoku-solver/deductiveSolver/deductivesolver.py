@@ -210,11 +210,16 @@ class DeductiveSolver:
                                 self.puzzle[r][c] -= shared_marking
 
     def xy_find_potential_cell(self, scribble_must_have=set()):
-        idx = []
-        for r, row in enumerate(self.puzzle):
-            for c, cell in enumerate(row):
-                if isinstance(cell, set) and len(cell) == 2 and scribble_must_have.issubset(cell):
-                    idx.append((r, c))
+        if len(scribble_must_have) == 2:
+            idx = [(x, y) for x, y in zip(*np.where(self.puzzle == scribble_must_have))]
+            if not any(idx):
+                idx = []
+        else:
+            idx = []
+            for r, row in enumerate(self.puzzle):
+                for c, cell in enumerate(row):
+                    if isinstance(cell, set) and len(cell) == 2 and scribble_must_have.issubset(cell):
+                        idx.append((r, c))
         return idx
 
     @staticmethod
