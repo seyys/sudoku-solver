@@ -1,3 +1,6 @@
+import numbers
+
+
 class Viewer:
     def view(puzzle):
         for y, row in enumerate(puzzle):
@@ -7,7 +10,7 @@ class Viewer:
             for x, cell in enumerate(row):
                 if x in [0,3,6]:
                     s += "|"
-                if isinstance(cell, int):
+                if isinstance(cell, numbers.Integral):
                     s += str(cell) + " "
                 else:
                     s += "  "
